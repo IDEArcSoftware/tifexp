@@ -84,3 +84,34 @@ map.getView().on('change:resolution', function () {
 addGeoServerWMSLayer(map);
 
 setupKMLImport('kmlInput', 'kmlImportBtn', map);
+
+// Panel collapse / expand
+const controlPanel = document.getElementById('controlPanel');
+const panelBody = controlPanel?.querySelector('.panel-body');
+const panelToggle = document.getElementById('panelToggle');
+
+if (controlPanel && panelBody && panelToggle) {
+  let userToggled = false;
+
+  const setCollapsed = (collapsed) => {
+    controlPanel.classList.toggle('collapsed', collapsed);
+    panelBody.hidden = collapsed;
+    panelToggle.setAttribute('aria-expanded', String(!collapsed));
+    panelToggle.textContent = collapsed ? 'Show' : 'Hide';
+  };
+
+  const handleResponsive = () => {
+    if (!userToggled) {
+      setCollapsed(window.innerWidth <= 768);
+    }
+  };
+
+  panelToggle.addEventListener('click', () => {
+    const isCollapsed = controlPanel.classList.contains('collapsed');
+    userToggled = true;
+    setCollapsed(!isCollapsed);
+  });
+
+  handleResponsive();
+  window.addEventListener('resize', handleResponsive);
+}
