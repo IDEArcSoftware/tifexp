@@ -2,7 +2,7 @@ import { map } from './map.js';
 
 // KML kaynağı
 const projectSource = new ol.source.Vector({
-  url: 'veri/project/libya-bengazi-cevahir-yol-27092025.kml',
+  url: "/media/doc.kml",
   format: new ol.format.KML()
 });
 

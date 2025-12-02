@@ -3,9 +3,9 @@
 function addGeoServerWMSLayer(map) {
     const wmsLayer = new ol.layer.Tile({
       source: new ol.source.TileWMS({
-        url: 'https://cbs.ulkeharita.com.tr/geoserver/cevahir-libyabengazi/wms',
+        url: 'http://78.188.214.83:8181/geoserver/benghazi/wms',
         params: {
-          'LAYERS': 'cevahir-libyabengazi:cevahir-libya-bengazi-yol-etaplar',
+          'LAYERS': 'benghazi:geotools_coverage',
           'TILED': true
         },
         attributions: ''
