@@ -1,0 +1,101 @@
+html, body, #map {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+/* Ã–lÃ§Ã¼m kontrolleri */
+#measureControls {
+  position: absolute;
+  top: 50px;
+  left: 10px;
+  z-index: 1000;
+}
+#measureControls button {
+  margin-bottom: 4px;
+  display: block;
+  padding: 6px 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* Ã–lÃ§Ã¼m tooltip'leri */
+.ol-tooltip {
+  position: relative;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  color: white;
+  padding: 8px 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.ol-tooltip-measure {
+  white-space: normal;
+  max-width: 250px;
+  min-width: 100px;
+}
+
+/* Segment etiketleri */
+.segment-label, .total-label {
+  position: absolute;
+  background: rgba(255,255,255,0.8);
+  border: 1px solid #333;
+  padding: 2px 4px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.total-label {
+  font-weight: bold;
+}
+
+
+.segment-label:after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.7) transparent transparent transparent;
+}
+
+/* Kontrol Paneli (Katman + Ã–lÃ§Ã¼m araÃ§larÄ±) */
+#controlPanel {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 180px;
+}
+
+#controlPanel h3 {
+  margin: 10px 0 5px;
+  font-size: 14px;
+  color: #444;
+  font-weight: bold;
+}
+
+#controlPanel select,
+#controlPanel button {
+  width: 100%;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+  cursor: pointer;
+  background-color: #f8f8f8;
+  transition: background-color 0.2s;
+}
+
+#controlPanel button:hover {
+  background-color: #eaeaea;
+}

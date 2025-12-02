@@ -1,0 +1,57 @@
+<html lang="tr"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bengazi / Libya</title>
+  <link rel="stylesheet" href="css/ol.css">
+  <link rel="stylesheet" href="css/mycss.css">
+  <script src="js/ol.js"></script>
+  <script type="module" src="js/map.js"></script>
+  <script src="js/jszip.min.js"></script>
+</head>
+<body>
+
+  <!-- Kontrol Paneli -->
+  <div id="controlPanel">
+    <h3>Map Layer</h3>
+    <select id="basemapToggle">
+      <option value="satellite" selected="">Satellite View</option>
+      <option value="street">Street Map</option>
+    </select>
+
+    <h3>Project Data</h3>
+    <label>
+      <input type="checkbox" id="toggleProjectLayer">
+      Show Project Data
+    </label>
+    <!--
+    <h3>Çizim Verisi</h3>
+    <label>
+      <input type="checkbox" id="toggleDrawLayer">
+      Çizim Verisini Göster
+    </label>
+    -->
+    <h3>Measurement Tools</h3>
+    <button id="measureLength">Measure Distance</button>
+    <button id="measureArea">Measure Area</button>
+    <button id="measureClear">Clear</button>
+    <button id="kmlImportBtn">Import KML / KMZ</button>
+    <button id="exportKML">Export KML</button>
+    <button id="exportGeojson">Export GeoJSON</button>
+    <input type="file" id="kmlInput" accept=".kml,.kmz" style="display:none">
+  </div>
+
+  <!-- Harita Alanı -->
+  <div id="map"><div class="ol-viewport" style="position: relative; overflow: hidden; width: 100%; height: 100%;"><div class="ol-unselectable ol-layers" style="position: absolute; width: 100%; height: 100%; z-index: 0;"><div class="ol-layer" style="position: absolute; width: 100%; height: 100%;"><canvas width="992" height="945" style="position: absolute; left: 0px; transform-origin: left top; transform: matrix(1, 0, 0, 1, 0, 0);"></canvas></div></div><div class="ol-overlaycontainer" style="position: absolute; z-index: 0; width: 100%; height: 100%; pointer-events: none;"></div><div class="ol-overlaycontainer-stopevent" style="position: absolute; z-index: 0; width: 100%; height: 100%; pointer-events: none;"><div class="ol-zoom ol-unselectable ol-control" style="pointer-events: auto;"><button class="ol-zoom-in" type="button" title="Zoom in">+</button><button class="ol-zoom-out" type="button" title="Zoom out">–</button></div><div class="ol-rotate ol-unselectable ol-control ol-hidden" style="pointer-events: auto;"><button class="ol-rotate-reset" type="button" title="Reset rotation"><span class="ol-compass" style="transform: rotate(0rad);">⇧</span></button></div><div class="ol-attribution ol-unselectable ol-control ol-uncollapsible" style="pointer-events: auto; display: none;"><button type="button" aria-expanded="true" title="Attributions"><span class="ol-attribution-collapse">›</span></button><ul></ul></div></div></div></div>
+
+  <script src="js/wms.js"></script>
+  <script type="module" src="js/measure.js"></script>
+  <script type="module" src="js/projectLayer.js"></script>
+  <!--<script type="module" src="js/drawLayer.js"></script>-->
+  <script type="module" src="js/export.js"></script>
+  <script type="module" src="js/exportKML.js"></script>
+  <script type="module" src="js/importKML.js"></script>
+
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;43d559c960374ed399da056c98baed72&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a72d3bed9321218',t:'MTc2NDU5NDY1MQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><iframe height="1" width="1" style="position: absolute; top: 0px; left: 0px; border: none; visibility: hidden;"></iframe>
+
+</body></html>
