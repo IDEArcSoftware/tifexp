@@ -1,12 +1,33 @@
 import { setupKMLImport } from './importKML.js';
 
+const MAPTILER_KEY = window.MAPTILER_KEY || '';
+const maptilerAttributions = [
+  '<a href="https://www.maptiler.com/copyright/" target="_blank">© MapTiler</a>',
+  '<a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>'
+];
+const osmAttribution = '<a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap contributors</a>';
+
+const streetSource = MAPTILER_KEY
+  ? new ol.source.XYZ({
+      url: `https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`,
+      tileSize: 256,
+      attributions: maptilerAttributions,
+      maxZoom: 20,
+      crossOrigin: 'anonymous'
+    })
+  : new ol.source.OSM({
+      attributions: osmAttribution,
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      crossOrigin: 'anonymous'
+    });
+
 // 1) Harita nesnesini oluştur
 export const map = new ol.Map({
   target: 'map',
   layers: [
     // Sokak katmanı (başlangıçta gizli)
     new ol.layer.Tile({
-      source: new ol.source.OSM(),
+      source: streetSource,
       visible: false
     }),
 
@@ -89,6 +110,7 @@ setupKMLImport('kmlInput', 'kmlImportBtn', map);
 const controlPanel = document.getElementById('controlPanel');
 const panelBody = controlPanel?.querySelector('.panel-body');
 const panelToggle = document.getElementById('panelToggle');
+const panelToggleLabel = panelToggle?.querySelector('.sr-only');
 
 if (controlPanel && panelBody && panelToggle) {
   let userToggled = false;
@@ -97,7 +119,12 @@ if (controlPanel && panelBody && panelToggle) {
     controlPanel.classList.toggle('collapsed', collapsed);
     panelBody.hidden = collapsed;
     panelToggle.setAttribute('aria-expanded', String(!collapsed));
-    panelToggle.textContent = collapsed ? 'Show' : 'Hide';
+    panelToggle.setAttribute('aria-label', collapsed ? 'Show panel' : 'Hide panel');
+    panelToggle.dataset.state = collapsed ? 'show' : 'hide';
+
+    if (panelToggleLabel) {
+      panelToggleLabel.textContent = collapsed ? 'Show panel' : 'Hide panel';
+    }
   };
 
   const handleResponsive = () => {

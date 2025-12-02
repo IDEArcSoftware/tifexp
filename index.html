@@ -18,7 +18,26 @@
         <h2>Bengazi / Libya</h2>
         <p class="muted">Switch basemaps, measure, and exchange your project data without losing sight of the map.</p>
       </div>
-      <button id="panelToggle" class="panel-toggle" aria-expanded="true" aria-controls="controlPanel">Hide</button>
+      <button
+        id="panelToggle"
+        class="panel-toggle"
+        aria-expanded="true"
+        aria-controls="controlPanel"
+        aria-label="Hide panel"
+        data-state="hide"
+      >
+        <span class="icon icon-hide" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="presentation">
+            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5 11H7v-2h10v2Z" />
+          </svg>
+        </span>
+        <span class="icon icon-show" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="presentation">
+            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h4v-2h-4V7h-2v4H7v2h4v4h2v-4Z" />
+          </svg>
+        </span>
+        <span class="sr-only">Hide panel</span>
+      </button>
     </div>
 
     <div class="panel-body">
@@ -34,7 +53,7 @@
       <div class="panel-section">
         <h3>Project Data</h3>
         <label class="checkbox-row">
-          <input type="checkbox" id="toggleProjectLayer">
+          <input type="checkbox" id="toggleProjectLayer" checked>
           <span>Show Project Data</span>
         </label>
       </div>

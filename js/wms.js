@@ -3,7 +3,7 @@
 function addGeoServerWMSLayer(map) {
     const wmsLayer = new ol.layer.Tile({
       source: new ol.source.TileWMS({
-        url: 'http://78.188.214.83:8181/geoserver/benghazi/wms',
+        url: 'https://iws-s.taila00ae4.ts.net/geoserver/benghazi/wms',
         params: {
           'LAYERS': 'benghazi:geotools_coverage',
           'TILED': true

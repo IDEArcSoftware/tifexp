@@ -29,8 +29,9 @@ map.addLayer(projectLayer);
 let zoomDone = false;
 
 // Checkbox kontrolü
-document.getElementById('toggleProjectLayer').addEventListener('change', function () {
-  const visible = this.checked;
+const projectToggle = document.getElementById('toggleProjectLayer');
+
+const setProjectVisibility = (visible) => {
   projectLayer.setVisible(visible);
 
   if (visible && !zoomDone) {
@@ -55,4 +56,14 @@ document.getElementById('toggleProjectLayer').addEventListener('change', functio
 
     tryZoom();
   }
-});
+};
+
+if (projectToggle) {
+  projectToggle.addEventListener('change', function () {
+    setProjectVisibility(this.checked);
+  });
+
+  // Varsayılan olarak açık gelsin
+  projectToggle.checked = true;
+  setProjectVisibility(true);
+}
