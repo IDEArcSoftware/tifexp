@@ -57,51 +57,20 @@ export const map = new ol.Map({
   })
 });
 
-// 2) Basemap toggle kontrolü
-let userSwitchedManually = false;
+// 2) Basemap toggle kontrolü (kullanıcı değiştirene kadar uydu açık kalsın)
 // layers[0] = street, layers[1] = satellite, layers[2] = labels
 const streetLayer    = map.getLayers().item(0);
 const satelliteLayer = map.getLayers().item(1);
 const labelLayer     = map.getLayers().item(2);
 
 document.getElementById('basemapToggle').addEventListener('change', function () {
-  userSwitchedManually = true;
-  if (this.value === 'satellite') {
-    satelliteLayer.setVisible(true);
-    labelLayer.setVisible(true);
-    streetLayer.setVisible(false);
-  } else {
-    satelliteLayer.setVisible(false);
-    labelLayer.setVisible(false);
-    streetLayer.setVisible(true);
-  }
+  const useSatellite = this.value === 'satellite';
+  satelliteLayer.setVisible(useSatellite);
+  labelLayer.setVisible(useSatellite);
+  streetLayer.setVisible(!useSatellite);
 });
 
-// 3) Zoom’a bağlı otomatik geçiş
-map.getView().on('change:resolution', function () {
-  const zoom = map.getView().getZoom();
-
-  if (zoom > 18) {
-    // Çok büyüdü: sokak haritasına geç
-    if (satelliteLayer.getVisible()) {
-      satelliteLayer.setVisible(false);
-      labelLayer.setVisible(false);
-      streetLayer.setVisible(true);
-      document.getElementById('basemapToggle').value = 'street';
-      userSwitchedManually = false;
-    }
-  } else {
-    // Yeterince küçüldü: uyduya dön (manuel değiştirme yoksa)
-    if (!satelliteLayer.getVisible() && !userSwitchedManually) {
-      satelliteLayer.setVisible(true);
-      labelLayer.setVisible(true);
-      streetLayer.setVisible(false);
-      document.getElementById('basemapToggle').value = 'satellite';
-    }
-  }
-});
-
-// 4) WMS katmanını ekle (wms.js içinde global addGeoServerWMSLayer tanımlı)
+// 3) WMS katmanını ekle (wms.js içinde global addGeoServerWMSLayer tanımlı)
 addGeoServerWMSLayer(map);
 
 setupKMLImport('kmlInput', 'kmlImportBtn', map);

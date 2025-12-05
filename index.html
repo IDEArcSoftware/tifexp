@@ -11,70 +11,95 @@
   <link rel="stylesheet" href="css/mycss.css">
 </head>
 <body>
-  <div id="controlPanel">
-    <div class="panel-header">
-      <div class="panel-title">
-        <p class="eyebrow">Field toolkit</p>
-        <h2>Bengazi / Libya</h2>
-        <p class="muted">Switch basemaps, measure, and exchange your project data without losing sight of the map.</p>
+  <div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true">
+    <div class="login-card">
+      <div class="login-card__brand">
+        <span class="pill pill-brand">Access required</span>
+        <h1>Project console</h1>
+        <p class="muted">Shared password gate for quick access.</p>
       </div>
-      <button
-        id="panelToggle"
-        class="panel-toggle"
-        aria-expanded="true"
-        aria-controls="controlPanel"
-        aria-label="Hide panel"
-        data-state="hide"
-      >
-        <span class="icon icon-hide" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="presentation">
-            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm5 11H7v-2h10v2Z" />
-          </svg>
-        </span>
-        <span class="icon icon-show" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="presentation">
-            <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 11h4v-2h-4V7h-2v4H7v2h4v4h2v-4Z" />
-          </svg>
-        </span>
-        <span class="sr-only">Hide panel</span>
-      </button>
+      <form id="loginForm" class="login-form" novalidate>
+        <label class="field-label" for="loginUser">Username</label>
+        <input id="loginUser" name="username" type="text" autocomplete="username" required>
+
+        <label class="field-label" for="loginPass">Password</label>
+        <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+
+        <p id="loginError" class="login-error" role="status" aria-live="polite"></p>
+        <button type="submit">Login</button>
+        
+      </form>
     </div>
+  </div>
 
+  <div id="controlPanel">
     <div class="panel-body">
-      <div class="panel-section">
-        <h3>Map Layer</h3>
-        <label class="field-label" for="basemapToggle">Base map</label>
-        <select id="basemapToggle">
-          <option value="satellite" selected>Satellite View</option>
-          <option value="street">Street Map</option>
-        </select>
-      </div>
-
-      <div class="panel-section">
-        <h3>Project Data</h3>
-        <label class="field-label" for="projectKmlSelect">Project version</label>
-        <select id="projectKmlSelect"></select>
-        <label class="checkbox-row">
-          <input type="checkbox" id="toggleProjectLayer" checked>
-          <span>Show Project Data</span>
-        </label>
-      </div>
-
-      <div class="panel-section">
-        <h3>Measurement Tools</h3>
-        <div class="control-grid">
-          <button id="measureLength">Measure Distance</button>
-          <button id="measureArea">Measure Area</button>
-          <button id="measureClear" class="ghost">Clear</button>
+      <div class="panel-view active" data-view="map">
+        <div class="panel-section panel-card">
+          <div class="section-head">
+            <div>
+              <p class="overline">Map</p>
+              <h3>Base layers</h3>
+            </div>
+            <span class="badge">Dynamic</span>
+          </div>
+          <label class="field-label" for="basemapToggle">Base map</label>
+          <select id="basemapToggle">
+            <option value="satellite" selected>Satellite View</option>
+            <option value="street">Street Map</option>
+          </select>
         </div>
       </div>
 
-      <div class="panel-section">
-        <h3>Data Exchange</h3>
-        <div class="control-grid">
-          <button id="kmlImportBtn">Import KML / KMZ</button>
-          <button id="exportKML">Export KML</button>
-          <button id="exportGeojson">Export GeoJSON</button>
+      <div class="panel-view" data-view="project">
+        <div class="panel-section panel-card">
+          <div class="section-head">
+            <div>
+              <p class="overline">Project</p>
+              <h3>Layer selection</h3>
+            </div>
+            <span class="badge badge-soft">Archive</span>
+          </div>
+          <label class="field-label" for="projectKmlSelect">Project version</label>
+          <select id="projectKmlSelect"></select>
+          <label class="checkbox-row">
+            <input type="checkbox" id="toggleProjectLayer" checked>
+            <span>Show Project Data</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="panel-view" data-view="measure">
+        <div class="panel-section panel-card">
+          <div class="section-head">
+            <div>
+              <p class="overline">Measure</p>
+              <h3>Distance & area</h3>
+            </div>
+            <span class="badge badge-soft">Tools</span>
+          </div>
+          <div class="control-grid">
+            <button id="measureLength">Measure Distance</button>
+            <button id="measureArea">Measure Area</button>
+            <button id="measureClear" class="ghost">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-view" data-view="data">
+        <div class="panel-section panel-card">
+          <div class="section-head">
+            <div>
+              <p class="overline">Data</p>
+              <h3>Import / export</h3>
+            </div>
+            <span class="badge badge-soft">KML / GeoJSON</span>
+          </div>
+          <div class="control-grid">
+            <button id="kmlImportBtn">Import KML / KMZ</button>
+            <button id="exportKML">Export KML</button>
+            <button id="exportGeojson">Export GeoJSON</button>
+          </div>
         </div>
       </div>
 
@@ -83,6 +108,14 @@
   </div>
 
   <div id="map"></div>
+
+  <div id="masterMenu" class="master-menu" role="tablist" aria-label="Toolbox menu">
+    <button class="menu-btn active" data-target="map" aria-pressed="true" role="tab">Map</button>
+    <button class="menu-btn" data-target="project" aria-pressed="false" role="tab">Project</button>
+    <button class="menu-btn" data-target="measure" aria-pressed="false" role="tab">Measure</button>
+    <button class="menu-btn" data-target="data" aria-pressed="false" role="tab">Data</button>
+    <button class="menu-btn secondary" id="panelVisibilityBtn" aria-pressed="true" role="button">Hide Panel</button>
+  </div>
 
   <script>
     // Güncel ve arşiv KML dosyalarını burada listeleyin. İlk kayıt en güncel olanıdır.
@@ -103,5 +136,106 @@
   <script type="module" src="js/export.js"></script>
   <script type="module" src="js/exportKML.js"></script>
   <script type="module" src="js/importKML.js"></script>
+  <script>
+    // Basic front-end login gate; accepts any non-empty credentials and hides the overlay
+    (() => {
+      const PASSWORD_HASH = 'd3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791'; // sha256('demo123')
+      const overlay = document.getElementById('loginOverlay');
+      const form = document.getElementById('loginForm');
+      const userInput = document.getElementById('loginUser');
+      const passInput = document.getElementById('loginPass');
+      const errorBox = document.getElementById('loginError');
+
+      if (!overlay || !form || !userInput || !passInput) return;
+
+      const hashString = async (value) => {
+        const data = new TextEncoder().encode(value);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      };
+
+      const hideOverlay = () => {
+        overlay.classList.add('hidden');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('login-blocked');
+      };
+
+      const storedUser = sessionStorage.getItem('loginUser');
+      const alreadyAuthed = sessionStorage.getItem('loginAuth') === 'yes';
+      if (storedUser && alreadyAuthed) {
+        hideOverlay();
+      } else {
+        document.body.classList.add('login-blocked');
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = userInput.value.trim();
+        const password = passInput.value.trim();
+
+        if (!username || !password) {
+          if (errorBox) {
+            errorBox.textContent = 'Please enter both a username and password.';
+          }
+          return;
+        }
+
+        const passHash = await hashString(password);
+        if (passHash !== PASSWORD_HASH) {
+          if (errorBox) {
+            errorBox.textContent = 'Incorrect password.';
+          }
+          return;
+        }
+
+        sessionStorage.setItem('loginUser', username);
+        sessionStorage.setItem('loginAuth', 'yes');
+        if (errorBox) {
+          errorBox.textContent = '';
+        }
+        hideOverlay();
+      });
+    })();
+
+    // Simple tabbed navigation for toolbox
+    const controlPanel = document.getElementById('controlPanel');
+    const views = Array.from(document.querySelectorAll('.panel-view'));
+    const menuButtons = Array.from(document.querySelectorAll('#masterMenu .menu-btn'));
+    const visibilityBtn = document.getElementById('panelVisibilityBtn');
+    let panelVisible = true;
+
+    const setPanelVisible = (visible) => {
+      panelVisible = visible;
+      if (controlPanel) {
+        controlPanel.classList.toggle('panel-visible', visible);
+        controlPanel.classList.toggle('panel-off', !visible);
+      }
+      if (visibilityBtn) {
+        visibilityBtn.textContent = visible ? 'Hide Panel' : 'Show Panel';
+        visibilityBtn.setAttribute('aria-pressed', String(visible));
+      }
+    };
+
+    const setView = (viewId) => {
+      views.forEach(view => view.classList.toggle('active', view.dataset.view === viewId));
+      menuButtons.forEach(btn => {
+        const isActive = btn.dataset.target === viewId;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', isActive);
+      });
+      setPanelVisible(true);
+    };
+    menuButtons.forEach(btn => {
+      const target = btn.dataset.target;
+      if (target) {
+        btn.addEventListener('click', () => setView(target));
+      }
+    });
+    if (visibilityBtn) {
+      visibilityBtn.addEventListener('click', () => setPanelVisible(!panelVisible));
+    }
+    setView('map');
+  </script>
 </body>
 </html>
