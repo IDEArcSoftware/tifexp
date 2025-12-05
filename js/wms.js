@@ -5,7 +5,7 @@ function addGeoServerWMSLayer(map) {
       source: new ol.source.TileWMS({
         url: 'https://iws-s.taila00ae4.ts.net/geoserver/benghazi/wms',
         params: {
-          'LAYERS': 'benghazi:geotools_coverage',
+          'LAYERS': 'benghazi:geotools_coverage,benghazi:geotools_coverage_2',
           'TILED': true
         },
         attributions: ''
