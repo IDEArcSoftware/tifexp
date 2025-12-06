@@ -1,4 +1,5 @@
 import { map } from './map.js';
+import { renderKmlGroundOverlays } from './kmlGroundOverlays.js';
 
 // Kullanılabilir KML sürümlerini topla
 const normalizeKmlEntries = (entries) => {
@@ -24,6 +25,8 @@ const projectKmlEntries = (() => {
 })();
 
 let activeEntry = projectKmlEntries[0];
+let projectOverlayLayers = [];
+let projectOverlayExtents = [];
 
 // KML kaynağı
 const projectSource = new ol.source.Vector({
@@ -58,22 +61,79 @@ let fitTimeoutId = null;
 const projectToggle = document.getElementById('toggleProjectLayer');
 const projectVersionSelect = document.getElementById('projectKmlSelect');
 
+const clearProjectOverlays = () => {
+  projectOverlayLayers.forEach((layer) => map.removeLayer(layer));
+  projectOverlayLayers = [];
+  projectOverlayExtents = [];
+};
+
+const setOverlayVisibility = (visible) => {
+  projectOverlayLayers.forEach((layer) => layer.setVisible(visible));
+};
+
+const mergeOverlayExtent = () => {
+  if (!projectOverlayExtents.length) return null;
+  return projectOverlayExtents.reduce((acc, ext) => {
+    if (!acc) return ol.extent.clone(ext);
+    return ol.extent.extend(acc, ext);
+  }, null);
+};
+
+const loadProjectOverlays = async (entry) => {
+  clearProjectOverlays();
+  if (!entry?.url) return;
+
+  try {
+    const response = await fetch(entry.url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch KML (${response.status})`);
+    }
+    const kmlText = await response.text();
+    const overlayResults = await renderKmlGroundOverlays(map, kmlText, {
+      baseHref: entry.url
+    });
+    projectOverlayLayers = overlayResults.map((item) => item.layer);
+    projectOverlayExtents = overlayResults.map((item) => item.extent).filter(Boolean);
+    setOverlayVisibility(projectLayer.getVisible());
+
+    // Fit again when overlays arrive so they are inside the initial view.
+    if (projectLayer.getVisible()) {
+      zoomDone = false;
+      if (fitTimeoutId) {
+        clearTimeout(fitTimeoutId);
+        fitTimeoutId = null;
+      }
+      scheduleFit();
+    }
+  } catch (error) {
+    console.error('Failed to load project KML overlays:', error);
+  }
+};
+
 const scheduleFit = () => {
   if (zoomDone) return;
 
-  const features = projectSource.getFeatures();
-  if (features.length > 0) {
-    const extent = projectSource.getExtent();
-    if (!ol.extent.isEmpty(extent)) {
-      map.getView().fit(extent, {
-        duration: 1000,
-        padding: [30, 30, 30, 30],
-        maxZoom: 20
-      });
-      zoomDone = true;
-      fitTimeoutId = null;
-      return;
-    }
+  const extent = projectSource.getExtent();
+  const hasFeatures = !ol.extent.isEmpty(extent);
+  const overlayExtent = mergeOverlayExtent();
+
+  let combinedExtent = null;
+  if (hasFeatures) {
+    combinedExtent = ol.extent.clone(extent);
+  }
+  if (overlayExtent) {
+    combinedExtent = combinedExtent ? ol.extent.extend(combinedExtent, overlayExtent) : ol.extent.clone(overlayExtent);
+  }
+
+  if (combinedExtent && !ol.extent.isEmpty(combinedExtent)) {
+    map.getView().fit(combinedExtent, {
+      duration: 1000,
+      padding: [30, 30, 30, 30],
+      maxZoom: 20
+    });
+    zoomDone = true;
+    fitTimeoutId = null;
+    return;
   }
 
   fitTimeoutId = setTimeout(scheduleFit, 120);
@@ -81,6 +141,7 @@ const scheduleFit = () => {
 
 const setProjectVisibility = (visible) => {
   projectLayer.setVisible(visible);
+  setOverlayVisibility(visible);
 
   if (visible && !zoomDone) {
     if (fitTimeoutId) {
@@ -105,6 +166,7 @@ const loadKmlVersion = (versionId) => {
   projectSource.clear(true);
   projectSource.setUrl(activeEntry.url);
   projectSource.refresh();
+  loadProjectOverlays(activeEntry);
 
   if (projectLayer.getVisible()) {
     scheduleFit();
@@ -138,3 +200,5 @@ if (projectToggle) {
   projectToggle.checked = true;
   setProjectVisibility(true);
 }
+
+loadProjectOverlays(activeEntry);

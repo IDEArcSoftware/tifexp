@@ -1,3 +1,5 @@
+import { renderKmlGroundOverlays } from './kmlGroundOverlays.js';
+
 // importKML.js
 // KML/KMZ dosyalarını haritaya import etmek için global ol nesnesiyle çalışan sürüm
 // KMZ için JSZip kütüphanesinin yüklü olması gerekir:
@@ -22,68 +24,34 @@ export function setupKMLImport(fileInputId, importButtonId, map) {
     if (file) {
       const reader = new FileReader();
 
-      reader.onload = function (e) {
+      reader.onload = async function (e) {
         try {
-          let kmlText = e.target.result;
-          let features = [];
+          const isKmz = file.name.toLowerCase().endsWith('.kmz');
+          let kmlString = '';
+          let zipArchive = null;
 
-          if (file.name.toLowerCase().endsWith('.kmz')) {
+          if (isKmz) {
             // KMZ ise: ZIP'ten çıkar
-            const zip = new JSZip();
-            zip.loadAsync(kmlText)
-              .then(zip => {
-                const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
-                if (kmlFile) {
-                  return kmlFile.async('string');
-                } else {
-                  throw new Error('A .kml error occurred in the KMZ file.');
-                }
-              })
-              .then(kmlString => {
-                const format = new ol.format.KML();
-                features = format.readFeatures(kmlString, {
-                  dataProjection: 'EPSG:4326',
-                  featureProjection: map.getView().getProjection()
-                });
-                addFeaturesToMap(features);
-              })
-              .catch(err => {
-                alert("Failed to read KMZ file: " + err.message);
-              });
+            zipArchive = await JSZip.loadAsync(e.target.result);
+            const kmlFile = Object.values(zipArchive.files).find((f) => f.name.toLowerCase().endsWith('.kml'));
+            if (!kmlFile) {
+              throw new Error('A .kml error occurred in the KMZ file.');
+            }
+            kmlString = await kmlFile.async('string');
           } else {
             // KML ise doğrudan işle
-            const format = new ol.format.KML();
-            features = format.readFeatures(kmlText, {
-              dataProjection: 'EPSG:4326',
-              featureProjection: map.getView().getProjection()
-            });
-            addFeaturesToMap(features);
+            kmlString = e.target.result;
           }
 
-          function addFeaturesToMap(features) {
-            const vectorSource = new ol.source.Vector({ features: features });
+          const format = new ol.format.KML();
+          const features = format.readFeatures(kmlString, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: map.getView().getProjection()
+          });
 
-            const vectorLayer = new ol.layer.Vector({
-              source: vectorSource,
-              style: new ol.style.Style({
-                stroke: new ol.style.Stroke({ color: '#ff0000', width: 2 }),
-                fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.1)' }),
-                image: new ol.style.Circle({
-                  radius: 5,
-                  fill: new ol.style.Fill({ color: '#ff0000' }),
-                  stroke: new ol.style.Stroke({ color: '#fff', width: 1 })
-                })
-              })
-            });
-
-            map.addLayer(vectorLayer);
-
-            // ✅ Otomatik zoom:
-            const extent = vectorSource.getExtent();
-            if (extent && !ol.extent.isEmpty(extent)) {
-              map.getView().fit(extent, { padding: [50, 50, 50, 50], duration: 1000 });
-            }
-          }
+          const overlayResults = await renderKmlGroundOverlays(map, kmlString, { zipArchive });
+          const overlayExtents = overlayResults.map((entry) => entry.extent).filter(Boolean);
+          addFeaturesToMap(features, overlayExtents);
         } catch (error) {
           alert("File could not be loaded: " + error.message);
         }
@@ -96,4 +64,40 @@ export function setupKMLImport(fileInputId, importButtonId, map) {
       }
     }
   });
+
+  function addFeaturesToMap(features, overlayExtents = []) {
+    const vectorSource = new ol.source.Vector({ features: features });
+
+    const vectorLayer = new ol.layer.Vector({
+      source: vectorSource,
+      style: new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#ff0000', width: 2 }),
+        fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.1)' }),
+        image: new ol.style.Circle({
+          radius: 5,
+          fill: new ol.style.Fill({ color: '#ff0000' }),
+          stroke: new ol.style.Stroke({ color: '#fff', width: 1 })
+        })
+      })
+    });
+
+    map.addLayer(vectorLayer);
+
+    // ✅ Otomatik zoom: hem vektör hem overlay alanını dikkate al
+    const overlayBounds = overlayExtents.filter((ext) => ext && !ol.extent.isEmpty(ext));
+    const featureExtent = vectorSource.getExtent();
+    const hasFeatures = features.length && featureExtent && !ol.extent.isEmpty(featureExtent);
+
+    let combinedExtent = null;
+    if (hasFeatures) {
+      combinedExtent = ol.extent.clone(featureExtent);
+    }
+    overlayBounds.forEach((ext) => {
+      combinedExtent = combinedExtent ? ol.extent.extend(combinedExtent, ext) : ol.extent.clone(ext);
+    });
+
+    if (combinedExtent && !ol.extent.isEmpty(combinedExtent)) {
+      map.getView().fit(combinedExtent, { padding: [50, 50, 50, 50], duration: 1000 });
+    }
+  }
 }
