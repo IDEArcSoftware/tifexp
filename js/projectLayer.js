@@ -96,6 +96,12 @@ let projectKmlEntries = (() => {
 let activeEntry = projectKmlEntries[0];
 let projectOverlayLayers = [];
 let projectOverlayExtents = [];
+const projectOverlayGroup = new ol.layer.Group({
+  layers: [],
+  visible: false,
+  title: 'ProjectOverlayGroup'
+});
+map.addLayer(projectOverlayGroup);
 let projectLoadToken = 0;
 
 // KML kaynağı
@@ -150,12 +156,16 @@ const populateProjectSelect = (entries) => {
 };
 
 const clearProjectOverlays = () => {
-  projectOverlayLayers.forEach((layer) => map.removeLayer(layer));
+  projectOverlayLayers.forEach((layer) => {
+    map.removeLayer(layer);
+    projectOverlayGroup.getLayers().remove(layer);
+  });
   projectOverlayLayers = [];
   projectOverlayExtents = [];
 };
 
 const setOverlayVisibility = (visible) => {
+  projectOverlayGroup.setVisible(visible);
   projectOverlayLayers.forEach((layer) => layer.setVisible(visible));
 };
 
@@ -179,7 +189,12 @@ const loadProjectOverlays = async (entry, loadToken) => {
       zipArchive
     });
     if (loadToken && loadToken !== projectLoadToken) return;
-    projectOverlayLayers = overlayResults.map((item) => item.layer);
+    projectOverlayLayers = overlayResults.map((item) => {
+      const layer = item.layer;
+      map.removeLayer(layer); // move under overlay group for unified visibility
+      projectOverlayGroup.getLayers().push(layer);
+      return layer;
+    });
     projectOverlayExtents = overlayResults.map((item) => item.extent).filter(Boolean);
     setOverlayVisibility(projectLayer.getVisible());
 
