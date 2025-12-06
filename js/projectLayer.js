@@ -18,6 +18,50 @@ const labelFromUrl = (url) => {
 
 const slugify = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
+const findZipKmlFile = (zipArchive) => {
+  if (!zipArchive) return null;
+  const entries = Object.values(zipArchive.files || {});
+  return entries.find((f) => f.name?.toLowerCase().endsWith('.kml')) || null;
+};
+
+const kmlPayloadCache = new Map();
+const loadKmlPayload = async (url) => {
+  if (!url) throw new Error('Missing KML/KMZ url');
+  if (kmlPayloadCache.has(url)) {
+    return kmlPayloadCache.get(url);
+  }
+
+  const loadPromise = (async () => {
+    const isKmz = /\.kmz(?:$|[?#])/i.test(url);
+    if (!isKmz) {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Failed to fetch KML (${response.status})`);
+      const kmlText = await response.text();
+      return { kmlText, zipArchive: null };
+    }
+
+    if (typeof JSZip === 'undefined') {
+      throw new Error('JSZip is required to read KMZ files.');
+    }
+
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Failed to fetch KMZ (${response.status})`);
+    const buffer = await response.arrayBuffer();
+    const zipArchive = await JSZip.loadAsync(buffer);
+    const kmlEntry = findZipKmlFile(zipArchive);
+    if (!kmlEntry) {
+      throw new Error('KMZ does not contain a .kml file.');
+    }
+    const kmlText = await kmlEntry.async('string');
+    return { kmlText, zipArchive };
+  })();
+
+  kmlPayloadCache.set(url, loadPromise);
+  return loadPromise;
+};
+
+const projectKmlFormat = new ol.format.KML();
+
 // Kullanılabilir KML sürümlerini topla
 const normalizeKmlEntries = (entries) => {
   const seen = new Set();
@@ -52,11 +96,11 @@ let projectKmlEntries = (() => {
 let activeEntry = projectKmlEntries[0];
 let projectOverlayLayers = [];
 let projectOverlayExtents = [];
+let projectLoadToken = 0;
 
 // KML kaynağı
 const projectSource = new ol.source.Vector({
-  url: activeEntry ? activeEntry.url : undefined,
-  format: new ol.format.KML()
+  format: projectKmlFormat
 });
 
 // Vektör katmanı
@@ -123,19 +167,18 @@ const mergeOverlayExtent = () => {
   }, null);
 };
 
-const loadProjectOverlays = async (entry) => {
+const loadProjectOverlays = async (entry, loadToken) => {
   clearProjectOverlays();
   if (!entry?.url) return;
 
   try {
-    const response = await fetch(entry.url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch KML (${response.status})`);
-    }
-    const kmlText = await response.text();
+    const { kmlText, zipArchive } = await loadKmlPayload(entry.url);
+    if (loadToken && loadToken !== projectLoadToken) return;
     const overlayResults = await renderKmlGroundOverlays(map, kmlText, {
-      baseHref: entry.url
+      baseHref: entry.url,
+      zipArchive
     });
+    if (loadToken && loadToken !== projectLoadToken) return;
     projectOverlayLayers = overlayResults.map((item) => item.layer);
     projectOverlayExtents = overlayResults.map((item) => item.extent).filter(Boolean);
     setOverlayVisibility(projectLayer.getVisible());
@@ -151,6 +194,24 @@ const loadProjectOverlays = async (entry) => {
     }
   } catch (error) {
     console.error('Failed to load project KML overlays:', error);
+  }
+};
+
+const loadProjectSourceFromEntry = async (entry, loadToken) => {
+  projectSource.clear(true);
+  if (!entry?.url) return;
+
+  try {
+    const { kmlText } = await loadKmlPayload(entry.url);
+    if (loadToken && loadToken !== projectLoadToken) return;
+    const features = projectKmlFormat.readFeatures(kmlText, {
+      dataProjection: 'EPSG:4326',
+      featureProjection: map.getView().getProjection()
+    });
+    if (loadToken && loadToken !== projectLoadToken) return;
+    projectSource.addFeatures(features);
+  } catch (error) {
+    console.error('Failed to load project KML source:', error);
   }
 };
 
@@ -281,7 +342,7 @@ const setProjectVisibility = (visible) => {
   }
 };
 
-const loadKmlVersion = (versionId, { forceReload = false } = {}) => {
+const loadKmlVersion = async (versionId, { forceReload = false } = {}) => {
   const nextEntry = projectKmlEntries.find((entry) => entry.id === versionId);
   if (!nextEntry) return;
 
@@ -297,6 +358,7 @@ const loadKmlVersion = (versionId, { forceReload = false } = {}) => {
     return;
   }
 
+  const loadToken = ++projectLoadToken;
   activeEntry = nextEntry;
   zoomDone = false;
   if (fitTimeoutId) {
@@ -304,10 +366,12 @@ const loadKmlVersion = (versionId, { forceReload = false } = {}) => {
     fitTimeoutId = null;
   }
 
-  projectSource.clear(true);
-  projectSource.setUrl(activeEntry.url);
-  projectSource.refresh();
-  loadProjectOverlays(activeEntry);
+  await Promise.all([
+    loadProjectSourceFromEntry(activeEntry, loadToken),
+    loadProjectOverlays(activeEntry, loadToken)
+  ]);
+
+  if (loadToken !== projectLoadToken) return;
 
   if (projectLayer.getVisible()) {
     scheduleFit();
@@ -331,7 +395,7 @@ const refreshProjectListFromMedia = async () => {
   populateProjectSelect(projectKmlEntries);
 
   if (!previousActive || nextActive.url !== previousActive.url) {
-    loadKmlVersion(nextActive.id, { forceReload: true });
+    await loadKmlVersion(nextActive.id, { forceReload: true });
   } else if (projectVersionSelect) {
     projectVersionSelect.value = nextActive.id;
   }
@@ -340,7 +404,9 @@ const refreshProjectListFromMedia = async () => {
 if (projectVersionSelect) {
   populateProjectSelect(projectKmlEntries);
   projectVersionSelect.addEventListener('change', (event) => {
-    loadKmlVersion(event.target.value);
+    loadKmlVersion(event.target.value).catch((error) => {
+      console.error('Project KML load failed:', error);
+    });
   });
 }
 
@@ -354,5 +420,7 @@ if (projectToggle) {
   setProjectVisibility(true);
 }
 
-loadProjectOverlays(activeEntry);
+loadKmlVersion(activeEntry?.id || projectKmlEntries[0]?.id, { forceReload: true }).catch((error) => {
+  console.error('Initial project KML load failed:', error);
+});
 refreshProjectListFromMedia();
