@@ -1,4 +1,5 @@
 import { setupKMLImport } from './importKML.js';
+import { renderKmlGroundOverlays } from './kmlGroundOverlays.js';
 
 const MAPTILER_KEY = window.MAPTILER_KEY || '';
 const maptilerAttributions = [
@@ -20,6 +21,9 @@ const streetSource = MAPTILER_KEY
       url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
       crossOrigin: 'anonymous'
     });
+
+const basemapKmlUrl = window.BASEMAP_KMZ_URL || '/media/basemap.kmz';
+const basemapKmlFormat = new ol.format.KML();
 
 // 1) Harita nesnesini oluştur
 export const map = new ol.Map({
@@ -63,15 +67,141 @@ const streetLayer    = map.getLayers().item(0);
 const satelliteLayer = map.getLayers().item(1);
 const labelLayer     = map.getLayers().item(2);
 
-document.getElementById('basemapToggle').addEventListener('change', function () {
-  const useSatellite = this.value === 'satellite';
+const basemapSource = new ol.source.Vector();
+const basemapLayer = new ol.layer.Vector({
+  source: basemapSource,
+  visible: false,
+  style: new ol.style.Style({
+    stroke: new ol.style.Stroke({ color: '#4a90e2', width: 1 }),
+    fill: new ol.style.Fill({ color: 'rgba(74, 144, 226, 0.08)' })
+  })
+});
+basemapLayer.setZIndex(1);
+map.addLayer(basemapLayer);
+
+let basemapOverlayLayers = [];
+let basemapLoadToken = 0;
+let basemapPayloadPromise = null;
+
+const clearBasemapOverlays = () => {
+  basemapOverlayLayers.forEach((layer) => map.removeLayer(layer));
+  basemapOverlayLayers = [];
+};
+
+const setBasemapVisibility = (visible) => {
+  basemapLayer.setVisible(visible);
+  basemapOverlayLayers.forEach((layer) => layer.setVisible(visible));
+};
+
+const findZipKmlFile = (zipArchive) => {
+  if (!zipArchive) return null;
+  const entries = Object.values(zipArchive.files || {});
+  return entries.find((f) => f.name?.toLowerCase().endsWith('.kml')) || null;
+};
+
+const loadBasemapPayload = async () => {
+  if (basemapPayloadPromise) return basemapPayloadPromise;
+
+  basemapPayloadPromise = (async () => {
+    const isKmz = /\.kmz(?:$|[?#])/i.test(basemapKmlUrl);
+    const response = await fetch(basemapKmlUrl, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Basemap fetch failed (${response.status})`);
+    }
+
+    if (!isKmz) {
+      const kmlText = await response.text();
+      return { kmlText, zipArchive: null };
+    }
+
+    if (typeof JSZip === 'undefined') {
+      throw new Error('JSZip is required to load basemap KMZ.');
+    }
+
+    const buffer = await response.arrayBuffer();
+    const zipArchive = await JSZip.loadAsync(buffer);
+    const kmlEntry = findZipKmlFile(zipArchive);
+    if (!kmlEntry) {
+      throw new Error('basemap.kmz does not contain a .kml file.');
+    }
+    const kmlText = await kmlEntry.async('string');
+    return { kmlText, zipArchive };
+  })().catch((error) => {
+    basemapPayloadPromise = null;
+    throw error;
+  });
+
+  return basemapPayloadPromise;
+};
+
+const loadKmzBasemap = async () => {
+  const token = ++basemapLoadToken;
+  setBasemapVisibility(false);
+  clearBasemapOverlays();
+  basemapSource.clear(true);
+
+  try {
+    const { kmlText, zipArchive } = await loadBasemapPayload();
+    if (token !== basemapLoadToken) return;
+
+    const features = basemapKmlFormat.readFeatures(kmlText, {
+      dataProjection: 'EPSG:4326',
+      featureProjection: map.getView().getProjection()
+    });
+    if (token !== basemapLoadToken) return;
+    basemapSource.addFeatures(features);
+
+    const overlayResults = await renderKmlGroundOverlays(map, kmlText, {
+      baseHref: basemapKmlUrl,
+      zipArchive,
+      zIndex: 1
+    });
+    if (token !== basemapLoadToken) return;
+    basemapOverlayLayers = overlayResults.map((entry) => entry.layer);
+    setBasemapVisibility(true);
+  } catch (error) {
+    if (token !== basemapLoadToken) return;
+    console.error('Basemap KMZ load failed:', error);
+  }
+};
+
+const hideKmzBasemap = () => {
+  basemapLoadToken++;
+  setBasemapVisibility(false);
+};
+
+const basemapSelect = document.getElementById('basemapToggle');
+const wmsLayer = addGeoServerWMSLayer(map);
+
+const applyBaseChoice = (value) => {
+  const useSatellite = value === 'satellite';
+  const useStreet = value === 'street';
+  const useKmzBasemap = value === 'kmz-basemap';
+
   satelliteLayer.setVisible(useSatellite);
   labelLayer.setVisible(useSatellite);
-  streetLayer.setVisible(!useSatellite);
-});
+  streetLayer.setVisible(useStreet);
+
+  if (wmsLayer) {
+    wmsLayer.setVisible(!useKmzBasemap);
+  }
+
+  if (useKmzBasemap) {
+    loadKmzBasemap();
+  } else {
+    hideKmzBasemap();
+  }
+};
+
+if (basemapSelect) {
+  applyBaseChoice(basemapSelect.value);
+  basemapSelect.addEventListener('change', function () {
+    applyBaseChoice(this.value);
+  });
+}
 
 // 3) WMS katmanını ekle (wms.js içinde global addGeoServerWMSLayer tanımlı)
-addGeoServerWMSLayer(map);
+// addGeoServerWMSLayer(map); -- now captured above
 
 setupKMLImport('kmlInput', 'kmlImportBtn', map);
 

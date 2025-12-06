@@ -12,6 +12,7 @@ function addGeoServerWMSLayer(map) {
       })
     });
     map.addLayer(wmsLayer);
+    return wmsLayer;
   }
   
   // Harita oluşturulduktan sonra wms katmanını ekleyin
