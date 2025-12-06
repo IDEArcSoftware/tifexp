@@ -154,7 +154,8 @@ const loadKmzBasemap = async () => {
     const overlayResults = await renderKmlGroundOverlays(map, kmlText, {
       baseHref: basemapKmlUrl,
       zipArchive,
-      zIndex: 1
+      zIndex: 1,
+      oversample: window.BASEMAP_KMZ_OVERSAMPLE ?? 1
     });
     if (token !== basemapLoadToken) return;
     basemapOverlayLayers = overlayResults.map((entry) => entry.layer);
