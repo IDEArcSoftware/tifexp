@@ -1,15 +1,39 @@
 import { map } from './map.js';
 import { renderKmlGroundOverlays } from './kmlGroundOverlays.js';
 
+const KML_FILE_REGEX = /\.(kml|kmz)(?:$|[?#])/i;
+
+const ensureMediaUrl = (value) => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) return value;
+  return `/media/${value}`;
+};
+
+const labelFromUrl = (url) => {
+  if (!url) return '';
+  const fileName = url.split('/').pop() || '';
+  return fileName.replace(KML_FILE_REGEX, '').replace(/[-_]+/g, ' ').trim() || fileName || url;
+};
+
+const slugify = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
 // Kullanılabilir KML sürümlerini topla
 const normalizeKmlEntries = (entries) => {
+  const seen = new Set();
   return entries
-    .filter((item) => item && item.url)
-    .map((item, index) => ({
-      id: item.id || `kml-${index}`,
-      label: item.label || item.id || item.url,
-      url: item.url
-    }));
+    .filter((item) => item && item.url && KML_FILE_REGEX.test(item.url))
+    .map((item, index) => {
+      const mediaUrl = ensureMediaUrl(item.url);
+      const label = item.label || labelFromUrl(mediaUrl) || item.id || mediaUrl;
+      const id = item.id || slugify(label) || `kml-${index}`;
+      return { id, label, url: mediaUrl };
+    })
+    .filter((item) => {
+      if (seen.has(item.url)) return false;
+      seen.add(item.url);
+      return true;
+    });
 };
 
 const fallbackKmlList = normalizeKmlEntries([
@@ -18,7 +42,7 @@ const fallbackKmlList = normalizeKmlEntries([
   { id: '2025-11-V18', label: 'November 2025 V18', url: '/media/doc.kml' }
 ]);
 
-const projectKmlEntries = (() => {
+let projectKmlEntries = (() => {
   const userList = Array.isArray(window.PROJECT_KML_LIST)
     ? normalizeKmlEntries(window.PROJECT_KML_LIST)
     : [];
@@ -31,7 +55,7 @@ let projectOverlayExtents = [];
 
 // KML kaynağı
 const projectSource = new ol.source.Vector({
-  url: activeEntry.url,
+  url: activeEntry ? activeEntry.url : undefined,
   format: new ol.format.KML()
 });
 
@@ -61,6 +85,25 @@ let fitTimeoutId = null;
 // Checkbox ve sürüm seçimi
 const projectToggle = document.getElementById('toggleProjectLayer');
 const projectVersionSelect = document.getElementById('projectKmlSelect');
+
+const populateProjectSelect = (entries) => {
+  if (!projectVersionSelect) return;
+  projectVersionSelect.innerHTML = '';
+
+  const fragment = document.createDocumentFragment();
+  entries.forEach((entry) => {
+    const option = document.createElement('option');
+    option.value = entry.id;
+    option.textContent = entry.label;
+    fragment.appendChild(option);
+  });
+
+  projectVersionSelect.appendChild(fragment);
+  if (activeEntry) {
+    projectVersionSelect.value = activeEntry.id;
+  }
+  projectVersionSelect.disabled = entries.length < 2;
+};
 
 const clearProjectOverlays = () => {
   projectOverlayLayers.forEach((layer) => map.removeLayer(layer));
@@ -140,6 +183,91 @@ const scheduleFit = () => {
   fitTimeoutId = setTimeout(scheduleFit, 120);
 };
 
+const resolveMediaPath = (value, basePath = '/media/') => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value) || value.startsWith('/')) return value;
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  const joined = `${normalizedBase}${value}`.replace(/\/{2,}/g, '/');
+  return joined.startsWith('/') ? joined : `/${joined}`;
+};
+
+const parseManifestEntries = (payload, manifestUrl = '/media/') => {
+  const basePath = manifestUrl.replace(/[^/]*$/, '');
+  const rawList = Array.isArray(payload) ? payload : Array.isArray(payload?.files) ? payload.files : [];
+  if (!rawList.length) return null;
+
+  return rawList
+    .map((item) => {
+      if (typeof item === 'string') {
+        return { url: resolveMediaPath(item, basePath), label: labelFromUrl(item) };
+      }
+      if (item && typeof item === 'object') {
+        const urlValue = item.url || item.name || item.file;
+        return urlValue ? { ...item, url: resolveMediaPath(urlValue, basePath) } : null;
+      }
+      return null;
+    })
+    .filter(Boolean);
+};
+
+const fetchManifestList = async (manifestUrl) => {
+  try {
+    const response = await fetch(manifestUrl, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) return null;
+    const payload = await response.json();
+    return parseManifestEntries(payload, manifestUrl);
+  } catch (error) {
+    console.warn('Project manifest fetch failed:', error);
+    return null;
+  }
+};
+
+const fetchDirectoryListing = async (mediaPath = '/media/') => {
+  try {
+    const response = await fetch(mediaPath, { cache: 'no-store' });
+    if (!response.ok) return null;
+    const html = await response.text();
+    const matches = [...html.matchAll(/href="([^"]+\.(?:kml|kmz))"/gi)];
+    if (!matches.length) return null;
+
+    const seen = new Set();
+    return matches
+      .map((match) => decodeURIComponent(match[1]))
+      .filter((href) => !href.startsWith('../'))
+      .map((href) => {
+        if (/^https?:\/\//i.test(href) || href.startsWith('/')) return href;
+        return resolveMediaPath(href, mediaPath);
+      })
+      .filter((url) => {
+        if (seen.has(url)) return false;
+        seen.add(url);
+        return true;
+      })
+      .map((url) => ({ url }));
+  } catch (error) {
+    console.warn('Media directory scan failed:', error);
+    return null;
+  }
+};
+
+const discoverKmlEntriesFromMedia = async () => {
+  const manifestCandidates =
+    (Array.isArray(window.PROJECT_KML_MANIFESTS) && window.PROJECT_KML_MANIFESTS.length
+      ? window.PROJECT_KML_MANIFESTS
+      : ['/media/manifest.json', '/media/index.json']);
+
+  for (const manifestUrl of manifestCandidates) {
+    const manifestEntries = await fetchManifestList(manifestUrl);
+    if (manifestEntries?.length) return manifestEntries;
+  }
+
+  const directoryEntries = await fetchDirectoryListing('/media/');
+  if (directoryEntries?.length) return directoryEntries;
+  return null;
+};
+
 const setProjectVisibility = (visible) => {
   projectLayer.setVisible(visible);
   setOverlayVisibility(visible);
@@ -153,9 +281,21 @@ const setProjectVisibility = (visible) => {
   }
 };
 
-const loadKmlVersion = (versionId) => {
+const loadKmlVersion = (versionId, { forceReload = false } = {}) => {
   const nextEntry = projectKmlEntries.find((entry) => entry.id === versionId);
-  if (!nextEntry || nextEntry.url === activeEntry.url) return;
+  if (!nextEntry) return;
+
+  const unchanged =
+    activeEntry &&
+    nextEntry.url === activeEntry.url &&
+    nextEntry.id === activeEntry.id;
+  if (unchanged && !forceReload) {
+    activeEntry = nextEntry;
+    if (projectVersionSelect) {
+      projectVersionSelect.value = nextEntry.id;
+    }
+    return;
+  }
 
   activeEntry = nextEntry;
   zoomDone = false;
@@ -174,19 +314,31 @@ const loadKmlVersion = (versionId) => {
   }
 };
 
+const refreshProjectListFromMedia = async () => {
+  const discoveredEntries = await discoverKmlEntriesFromMedia();
+  if (!discoveredEntries?.length) return;
+
+  const normalized = normalizeKmlEntries(discoveredEntries);
+  if (!normalized.length) return;
+
+  const previousActive = activeEntry;
+  projectKmlEntries = normalized;
+  const nextActive =
+    (previousActive && normalized.find((entry) => entry.id === previousActive.id)) ||
+    normalized[0];
+
+  activeEntry = nextActive;
+  populateProjectSelect(projectKmlEntries);
+
+  if (!previousActive || nextActive.url !== previousActive.url) {
+    loadKmlVersion(nextActive.id, { forceReload: true });
+  } else if (projectVersionSelect) {
+    projectVersionSelect.value = nextActive.id;
+  }
+};
+
 if (projectVersionSelect) {
-  const fragment = document.createDocumentFragment();
-  projectKmlEntries.forEach((entry) => {
-    const option = document.createElement('option');
-    option.value = entry.id;
-    option.textContent = entry.label;
-    fragment.appendChild(option);
-  });
-
-  projectVersionSelect.appendChild(fragment);
-  projectVersionSelect.value = activeEntry.id;
-  projectVersionSelect.disabled = projectKmlEntries.length < 2;
-
+  populateProjectSelect(projectKmlEntries);
   projectVersionSelect.addEventListener('change', (event) => {
     loadKmlVersion(event.target.value);
   });
@@ -203,3 +355,4 @@ if (projectToggle) {
 }
 
 loadProjectOverlays(activeEntry);
+refreshProjectListFromMedia();
