@@ -13,7 +13,8 @@ const normalizeKmlEntries = (entries) => {
 };
 
 const fallbackKmlList = normalizeKmlEntries([
-  { id: 'latest', label: 'Latest project data', url: '/media/251205_doc.kml' },
+  { id: 'latest', label: 'Latest project data', url: '/media/latest.kmz' },
+  { id: '2025-12-V18', label: 'December 2025 V18', url: '/media/251205_doc.kml' },
   { id: '2025-11-V18', label: 'November 2025 V18', url: '/media/doc.kml' }
 ]);
 
